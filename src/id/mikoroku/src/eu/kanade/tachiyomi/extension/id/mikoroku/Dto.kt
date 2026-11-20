@@ -5,8 +5,17 @@ import eu.kanade.tachiyomi.source.model.SManga
 import keiyoushi.utils.tryParse
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.jsoup.Jsoup
 import kotlin.time.Instant
+
+internal const val CATALOG_URL = "https://raw.githubusercontent.com/moemaomao/mymangadata/main/all-manga.json"
+private val CATALOG_BASE_URL = CATALOG_URL.toHttpUrl()
+
+// Some catalog entries store covers relative to the catalog repo (e.g. "cover/title.jpg").
+internal fun String?.toCoverUrl(): String? = this
+    ?.takeIf { it.isNotBlank() }
+    ?.let { CATALOG_BASE_URL.resolve(it)?.toString() }
 
 private val CHAPTER_REGEX = """Chapter\s+(\d+(?:\.\d+)?)""".toRegex(RegexOption.IGNORE_CASE)
 private val POST_ID_REGEX = """post-(\d+)""".toRegex()
@@ -75,7 +84,7 @@ class CatalogEntry(
 ) {
     fun toSManga() = SManga.create().apply {
         title = this@CatalogEntry.title
-        thumbnail_url = img.takeIf { it.isNotBlank() }
+        thumbnail_url = img.toCoverUrl()
         url = "/detail.html?slug=$slug"
     }
 }

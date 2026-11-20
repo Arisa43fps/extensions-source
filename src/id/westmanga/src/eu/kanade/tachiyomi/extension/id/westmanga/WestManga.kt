@@ -140,9 +140,13 @@ abstract class WestManga : KeiSource() {
     private var visitToken: String? = null
     private var visitTokenExpiresAt = Instant.DISTANT_PAST
 
-    private suspend fun getVisitToken(forceRefresh: Boolean = false): String? = visitTokenMutex.withLock {
+    private suspend fun getVisitToken(forceRefresh: Boolean = false, failedToken: String? = null): String? = visitTokenMutex.withLock {
         val now = Clock.System.now()
         if (!forceRefresh && visitToken != null && now < visitTokenExpiresAt - 5.minutes) {
+            return@withLock visitToken
+        }
+        // Another request already replaced the token that got rate limited.
+        if (failedToken != null && visitToken != failedToken) {
             return@withLock visitToken
         }
 
@@ -171,14 +175,17 @@ abstract class WestManga : KeiSource() {
         }
     }.build()
 
-    private suspend inline fun <reified T> apiGet(url: HttpUrl, includeToken: Boolean = true): T = try {
-        client.get(url, apiHeaders(includeToken), Fetch.XHR).parseAs<T>()
-    } catch (e: Exception) {
-        if (e is HttpException && (e.code == 403 || e.code == 404)) {
-            getVisitToken(forceRefresh = true)
-            client.get(url, apiHeaders(includeToken), Fetch.XHR).parseAs<T>()
-        } else {
-            throw e
+    private suspend inline fun <reified T> apiGet(url: HttpUrl, includeToken: Boolean = true): T {
+        val headers = apiHeaders(includeToken)
+        return try {
+            client.get(url, headers, Fetch.XHR).parseAs<T>()
+        } catch (e: Exception) {
+            if (e is HttpException && (e.code == 403 || e.code == 404 || e.code == 429)) {
+                getVisitToken(forceRefresh = true, failedToken = headers["X-WM-Visit"])
+                client.get(url, apiHeaders(includeToken), Fetch.XHR).parseAs<T>()
+            } else {
+                throw e
+            }
         }
     }
 }

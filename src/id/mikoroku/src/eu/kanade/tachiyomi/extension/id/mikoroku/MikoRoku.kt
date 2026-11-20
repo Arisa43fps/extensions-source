@@ -74,7 +74,7 @@ abstract class MikoRoku : KeiSource() {
             genre = fields.getStringList("genres").takeIf { it.isNotEmpty() }?.joinToString()
                 ?: entry?.genres?.takeIf { it.isNotEmpty() }?.joinToString()
             status = (fields.getString("status") ?: entry?.status).toMangaStatus()
-            thumbnail_url = fields.getString("img").nonBlank() ?: entry?.img.nonBlank()
+            thumbnail_url = (fields.getString("img").nonBlank() ?: entry?.img.nonBlank()).toCoverUrl()
         }
     }
 
@@ -223,7 +223,7 @@ abstract class MikoRoku : KeiSource() {
     private fun List<String>.toPages(): List<Page> = mapIndexed { index, url -> Page(index, imageUrl = url) }
 
     private suspend fun fetchCatalog(): List<CatalogEntry> {
-        val catalog = client.get("https://raw.githubusercontent.com/moemaomao/mymangadata/main/all-manga.json", Fetch.XHR).parseAs<List<CatalogEntry>>()
+        val catalog = client.get(CATALOG_URL, Fetch.XHR).parseAs<List<CatalogEntry>>()
         return catalog
     }
 
