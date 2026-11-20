@@ -12,3 +12,7 @@ gen
 generated-src/
 .kotlin
 *.jks
+.commandcode
+hs_err_pid*.log
+replay_pid*.log
+*.hprof
